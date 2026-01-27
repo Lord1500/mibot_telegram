@@ -18,17 +18,21 @@ from telegram.ext import (
     CallbackQueryHandler
 )
 from telegram.constants import ParseMode
-from telegram.error import TimedOut
+from telegram.error import TimedOut, NetworkError
 
-# Configuración
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# ========== CONFIGURACIÓN SEGURA PARA RAILWAY ==========
+# Usar variable de entorno, NO hardcode
+TOKEN = os.environ.get("BOT_TOKEN", "")
+
+# Configurar logging para producción
 logger = logging.getLogger(__name__)
 
-TOKEN = "8557185127:AAFumnURmqstIsWFogqLmbAzHDxD-lNSQ7w"
+# Desactivar logs de bibliotecas externas si son muy verbosos
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
 
+# ========== CLASES ORIGINALES (SIN CAMBIOS) ==========
 class Translator:
     """Traductor simple usando APIs públicas gratuitas"""
     
@@ -64,7 +68,7 @@ class Translator:
                 return translated
             
         except Exception as e:
-            print(f"Error en traducción: {e}")
+            logger.warning(f"Error en traducción: {e}")
         
         return text  # Si todo falla, devolver texto original
     
@@ -86,7 +90,7 @@ class Translator:
                     return self._clean_translation(translated)
         
         except Exception as e:
-            print(f"MyMemory error: {e}")
+            logger.debug(f"MyMemory error: {e}")
         
         return None
     
@@ -121,7 +125,7 @@ class Translator:
                     continue  # Intentar con siguiente servidor
         
         except Exception as e:
-            print(f"LibreTranslate error: {e}")
+            logger.debug(f"LibreTranslate error: {e}")
         
         return None
     
@@ -220,32 +224,28 @@ class SmartMedicationFinder:
         results = {}
         normalized_name = self.normalize_name(name)
         
-        print(f"🔍 Buscando: {normalized_name}")
+        logger.info(f"Buscando: {normalized_name}")
         
         # Método 1: Wikipedia API
         wiki_result = self.wikipedia_search(normalized_name)
         if wiki_result:
             results['Wikipedia'] = wiki_result
-            print("✅ Wikipedia encontrado")
         
         # Método 2: MedlinePlus API
         medline_result = self.medlineplus_search(normalized_name)
         if medline_result:
             results['MedlinePlus'] = medline_result
-            print("✅ MedlinePlus encontrado")
         
         # Método 3: OpenFDA API
         fda_result = self.openfda_search(normalized_name)
         if fda_result:
             results['FDA'] = fda_result
-            print("✅ FDA encontrado")
         
         # Método 4: DuckDuckGo API
         if len(results) < 2:
             ddg_result = self.duckduckgo_search(normalized_name)
             if ddg_result:
                 results['DuckDuckGo'] = ddg_result
-                print("✅ DuckDuckGo encontrado")
         
         # Traducir información al español
         results = self._translate_results(results)
@@ -281,7 +281,7 @@ class SmartMedicationFinder:
                             if translated and len(translated) > 30:
                                 translated_data[field] = translated
                         except Exception as e:
-                            print(f"Error traduciendo campo {field}: {e}")
+                            logger.debug(f"Error traduciendo campo {field}: {e}")
             
             translated_fields = [f for f in fields_to_translate 
                                if f in data and f in translated_data 
@@ -393,7 +393,7 @@ class SmartMedicationFinder:
                         }
                         
         except Exception as e:
-            print(f"Wikipedia error: {e}")
+            logger.debug(f"Wikipedia error: {e}")
         
         return None
     
@@ -439,7 +439,7 @@ class SmartMedicationFinder:
                         return info
                         
         except Exception as e:
-            print(f"MedlinePlus error: {e}")
+            logger.debug(f"MedlinePlus error: {e}")
         
         return None
     
@@ -504,7 +504,7 @@ class SmartMedicationFinder:
                     return info if len(info) > 3 else None
                         
         except Exception as e:
-            print(f"OpenFDA error: {e}")
+            logger.debug(f"OpenFDA error: {e}")
         
         return None
     
@@ -541,7 +541,7 @@ class SmartMedicationFinder:
                 return info if 'descripcion' in info else None
                         
         except Exception as e:
-            print(f"DuckDuckGo error: {e}")
+            logger.debug(f"DuckDuckGo error: {e}")
         
         return None
     
@@ -813,7 +813,7 @@ class WorkingMedicationBot:
             )
             
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"Error buscando {query}: {e}")
             await processing_msg.edit_text(
                 f"❌ *Error al buscar:* `{query}`\n\n"
                 "💡 *Prueba con:*\n"
@@ -892,7 +892,7 @@ class WorkingMedicationBot:
             parse_mode=ParseMode.MARKDOWN
         )
     
-    async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Manejador de botones"""
         query = update.callback_query
         await query.answer()
@@ -933,18 +933,25 @@ class WorkingMedicationBot:
                 parse_mode=ParseMode.MARKDOWN
             )
 
+# ========== FUNCIÓN PRINCIPAL ACTUALIZADA ==========
 async def post_init(application: Application) -> None:
     """Función que se ejecuta después de inicializar"""
-    print("=" * 50)
-    print("✅ Bot iniciado correctamente")
-    print("💊 Prueba con: aspirin, ibuprofen, omeprazole")
-    print("🌐 La información se traduce automáticamente")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("✅ Bot de Medicamentos iniciado correctamente")
+    logger.info("💊 Prueba con: aspirin, ibuprofen, omeprazole")
+    logger.info("🌐 La información se traduce automáticamente")
+    logger.info("=" * 50)
 
-def main():
-    """Función principal con manejo de errores mejorado"""
+async def main():
+    """Función principal asíncrona"""
+    # Verificar token
+    if not TOKEN or TOKEN == "" or "TU_TOKEN" in TOKEN:
+        logger.error("❌ ERROR: BOT_TOKEN no configurado")
+        logger.info("💡 Configura la variable en Railway: BOT_TOKEN=tu_token_aquí")
+        return
+    
     try:
-                # Crear aplicación con configuración para evitar timeouts
+        # Crear aplicación con configuración optimizada
         application = Application.builder() \
             .token(TOKEN) \
             .connect_timeout(30.0) \
@@ -956,13 +963,13 @@ def main():
         # Crear instancia del bot
         bot = WorkingMedicationBot()
         
-        # Comandos
+        # Añadir handlers
         application.add_handler(CommandHandler("start", bot.start))
         application.add_handler(CommandHandler("help", bot.help_command))
         application.add_handler(CommandHandler("buscar", bot.buscar_command))
         application.add_handler(CommandHandler("ejemplos", bot.ejemplos_command))
         
-        # Manejador de mensajes
+        # Manejador de mensajes de texto (busquedas)
         application.add_handler(MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             bot.search_medication
@@ -971,92 +978,102 @@ def main():
         # Manejador de botones
         application.add_handler(CallbackQueryHandler(bot.button_handler))
         
-        print("=" * 50)
-        print("🤖 INICIANDO BOT DE MEDICAMENTOS...")
-        print("=" * 50)
-        print("📱 Token: " + TOKEN[:10] + "..." + TOKEN[-10:])
-        print("💊 Prueba con: aspirin, ibuprofen, omeprazole")
-        print("🌐 Traducción automática activada")
-        print("⏱️ Timeouts configurados: 30 segundos")
-        print("=" * 50)
-        
         # Configurar post_init
         application.post_init = post_init
         
-        # Ejecutar con reintentos
-        print("🔄 Conectando con Telegram...")
+        logger.info("=" * 50)
+        logger.info("🤖 INICIANDO BOT DE MEDICAMENTOS...")
+        logger.info(f"📱 Token: {TOKEN[:10]}...{TOKEN[-10:]}")
+        logger.info("💊 Prueba con: aspirin, ibuprofen, omeprazole")
+        logger.info("🌐 Traducción automática activada")
+        logger.info("=" * 50)
         
-        # Intentar conectar con reintentos
+        # Ejecutar bot con reintentos
+        logger.info("🔄 Conectando con Telegram...")
+        
         max_retries = 3
         for retry in range(max_retries):
             try:
-                print(f"Intento {retry + 1} de {max_retries}...")
-                application.run_polling(
+                logger.info(f"Intento {retry + 1} de {max_retries}...")
+                await application.initialize()
+                await application.start()
+                await application.updater.start_polling(
                     drop_pending_updates=True,
-                    allowed_updates=Update.ALL_TYPES,
-                    close_loop=False)
-                break  # Si funciona, salir del bucle
-            except TimedOut as e:
-                print(f"⚠️ Timeout en intento {retry + 1}: {e}")
+                    allowed_updates=Update.ALL_TYPES
+                )
+                
+                # Mantener el bot corriendo
+                await idle()
+                break
+                
+            except (TimedOut, NetworkError) as e:
+                logger.warning(f"⚠️ Error de conexión en intento {retry + 1}: {e}")
                 if retry < max_retries - 1:
                     wait_time = 5 * (retry + 1)
-                    print(f"⏳ Esperando {wait_time} segundos antes de reintentar...")
+                    logger.info(f"⏳ Esperando {wait_time} segundos...")
                     time.sleep(wait_time)
                 else:
-                    print("❌ No se pudo conectar después de varios intentos")
+                    logger.error("❌ No se pudo conectar después de varios intentos")
                     raise
             except Exception as e:
-                print(f"❌ Error inesperado: {e}")
+                logger.error(f"❌ Error inesperado: {e}")
                 raise
         
     except KeyboardInterrupt:
-        print("\n🛑 Bot detenido por el usuario")
+        logger.info("\n🛑 Bot detenido por el usuario")
     except Exception as e:
-        print(f"\n❌ Error crítico: {e}")
-        print("💡 Soluciones posibles:")
-        print("1. Verifica tu conexión a internet")
-        print("2. Asegúrate de que el token sea correcto")
-        print("3. Verifica si hay bloqueos de firewall")
-        print("4. Intenta ejecutar en otro momento")
-        print("=" * 50)
+        logger.error(f"\n❌ Error crítico: {e}")
+        import traceback
+        logger.error(f"📋 Traceback:\n{traceback.format_exc()}")
 
 if __name__ == '__main__':
+    # Configurar logging para Railway
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
     # Verificar dependencias
     try:
-        import httpx
-        import httpcore
-        print("✅ Dependencias verificadas")
+        import asyncio
+        from telegram.ext import idle
+        logger.info("✅ Dependencias verificadas")
     except ImportError as e:
-        print(f"❌ Faltan dependencias: {e}")
-        print("💡 Ejecuta: pip install python-telegram-bot httpx requests")
+        logger.error(f"❌ Faltan dependencias: {e}")
+        logger.info("💡 Ejecuta: pip install python-telegram-bot httpx requests")
         exit(1)
     
     # Verificar conexión a internet
-    print("🌐 Verificando conexión a internet...")
+    logger.info("🌐 Verificando conexión a internet...")
     try:
         response = requests.get("https://api.telegram.org", timeout=10)
-        print("✅ Conexión a Telegram disponible")
-    except:
-        print("⚠️ No se pudo verificar conexión a Telegram")
-        print("💡 Asegúrate de tener conexión a internet")
+        if response.status_code == 200:
+            logger.info("✅ Conexión a Telegram disponible")
+        else:
+            logger.warning(f"⚠️ Conexión a Telegram con estado: {response.status_code}")
+    except Exception as e:
+        logger.warning(f"⚠️ No se pudo verificar conexión a Telegram: {e}")
     
-    # Ejecutar main
-    print("\n" + "=" * 50)
-    print("🚀 INICIANDO BOT...")
-    print("=" * 50)
+    # Ejecutar main asíncrono
+    logger.info("\n" + "=" * 50)
+    logger.info("🚀 INICIANDO BOT...")
+    logger.info("=" * 50)
     
     try:
-        main()
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("\n👋 Bot finalizado")
     except SystemExit:
-        print("\n👋 Bot finalizado")
+        pass
     except Exception as e:
-        print(f"\n💥 Error fatal: {e}")
-        print("📋 Información para depuración:")
-        import traceback
-        traceback.print_exc()
-        print("=" * 50)
-        print("💡 Si el problema persiste:")
-        print("1. Verifica que el token sea válido")
-        print("2. Intenta reiniciar el bot")
-        print("3. Verifica tu conexión a internet")
-        print("4. Contacta con soporte si es necesario")
+        logger.error(f"\n💥 Error fatal: {e}")
+        logger.info("💡 Soluciones posibles:")
+        logger.info("1. Verifica que el token sea correcto")
+        logger.info("2. Verifica tu conexión a internet")
+        logger.info("3. Intenta reiniciar el bot")
+        logger.info("=" * 50)
+                "*Escribe en inglés:*\n"
+                "`aspirin` `ibuprofen` `omeprazole`\n\n"
+                "*Algunos en español:*\n"
+                "`paracetamol` `diazep
