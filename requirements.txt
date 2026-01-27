@@ -1,15 +1,2 @@
 python-telegram-bot==20.7
-httpx==0.25.1
-requests==2.31
-# Bot de Medicamentos - Requirements
-# Última actualización: 2024
-
-# Telegram Bot
-python-telegram-bot==20.7
-
-# HTTP clients
-httpx==0.25.1
-requests==2.31.0
-
-# Utils (ya incluidos en Python 3.10)
-# typing-extensions==4.5.0  # Solo si usas Python <3.10
+python-dotenv==1.0.0
