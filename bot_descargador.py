@@ -780,8 +780,8 @@ class WorkingMedicationBot:
             "*En inglés (recomendado):*\n"
             "`aspirin` `ibuprofen` `omeprazole`\n\n"
             "*En español:*\n"
-            "`paracetamol` `diazepam` `warfarin`"
-            "*By LordCSo*\n",
+            "`paracetamol` `diazepam` `warfarin`",
+            "By @LordCSo",
             reply_markup=reply_markup,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -1061,4 +1061,5 @@ if __name__ == '__main__':
         print("2. Intenta reiniciar el bot")
         print("3. Verifica tu conexión a internet")
         print("4. Contacta con soporte si es necesario")
+
 
