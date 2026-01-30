@@ -771,7 +771,7 @@ class WorkingMedicationBot:
         
         await update.message.reply_text(
             "🏥 *Bot de Medicamentos*\n\n"
-            "By @LordCSo"
+            "By @LordCSo\n"
             "*✅ Funciona con APIs públicas:*\n"
             "• Wikipedia API\n"
             "• MedlinePlus API\n"
@@ -1061,6 +1061,7 @@ if __name__ == '__main__':
         print("2. Intenta reiniciar el bot")
         print("3. Verifica tu conexión a internet")
         print("4. Contacta con soporte si es necesario")
+
 
 
 
