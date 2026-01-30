@@ -1061,6 +1061,8 @@ if __name__ == '__main__':
         print("2. Intenta reiniciar el bot")
         print("3. Verifica tu conexión a internet")
         print("4. Contacta con soporte si es necesario")
+        application.run_polling(drop_pending_updates=True)
+
 
 
 
